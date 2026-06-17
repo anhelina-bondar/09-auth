@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import css from "./NoteForm.module.css";
 
-import { createNote } from "@/lib/api";
+import { createNote } from "@/lib/api/clientApi";
 import { NoteTag } from "@/types/note";
 import { useNoteStore } from "@/lib/store/noteStore";
 
