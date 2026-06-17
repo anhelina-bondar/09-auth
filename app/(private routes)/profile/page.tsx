@@ -1,14 +1,15 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { getMe } from "@/lib/api/serverApi";
 
-export const metadata = {
+import css from "./ProfilePage.module.css";
+
+export const metadata: Metadata = {
   title: "Profile | NoteHub",
   description: "User profile page",
 };
-
-import css from "./ProfilePage.module.css";
 
 export default async function ProfilePage() {
   const user = await getMe();

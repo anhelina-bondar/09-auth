@@ -59,16 +59,16 @@ export const fetchNoteById = async (id: string): Promise<Note> => {
   return data;
 };
 
-export const checkSession = async (): Promise<User | null> => {
+export const checkSession = async () => {
   const cookieHeader = await getCookieHeader();
 
-  const { data } = await api.get<User | null>("/auth/session", {
+  const response = await api.get<User | null>("/auth/session", {
     headers: {
       Cookie: cookieHeader,
     },
   });
 
-  return data;
+  return response;
 };
 
 export const getMe = async (): Promise<User> => {
