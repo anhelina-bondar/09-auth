@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
-export function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const accessToken = request.cookies.get("accessToken")?.value;
   const refreshToken = request.cookies.get("refreshToken")?.value;
 
-  const isAuthenticated = Boolean(accessToken || refreshToken);
+  let isAuthenticated = Boolean(accessToken);
 
   const isPrivateRoute = privateRoutes.some((route) =>
     pathname.startsWith(route),
@@ -18,6 +18,14 @@ export function proxy(request: NextRequest) {
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route),
   );
+
+  if (!accessToken && refreshToken) {
+    try {
+      isAuthenticated = true;
+    } catch {
+      isAuthenticated = false;
+    }
+  }
 
   if (!isAuthenticated && isPrivateRoute) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
@@ -31,5 +39,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|favicon.ico).*)"],
+  matcher: ["/profile/:path*", "/notes/:path*", "/sign-in", "/sign-up"],
 };
