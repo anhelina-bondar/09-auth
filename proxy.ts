@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkSession } from "./lib/api/serverApi";
 
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const accessToken = request.cookies.get("accessToken")?.value;
@@ -19,8 +20,11 @@ export function proxy(request: NextRequest) {
     pathname.startsWith(route),
   );
 
+  const response = NextResponse.next();
+
   if (!accessToken && refreshToken) {
     try {
+      await checkSession();
       isAuthenticated = true;
     } catch {
       isAuthenticated = false;
@@ -35,7 +39,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
