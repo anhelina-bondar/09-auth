@@ -4,19 +4,17 @@ import { checkSession } from "./lib/api/serverApi";
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
-function applySetCookie(response: NextResponse, setCookie?: string[] | string) {
-  if (!setCookie) return;
+function getSetCookieHeaders(setCookie?: string[] | string) {
+  if (!setCookie) return [];
+  return Array.isArray(setCookie) ? setCookie : [setCookie];
+}
 
-  const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
-
+function applySetCookieHeaders(response: NextResponse, cookies: string[]) {
   cookies.forEach((cookie) => {
-    const [cookiePart] = cookie.split(";");
-    const [name, ...valueParts] = cookiePart.split("=");
-
-    if (!name || valueParts.length === 0) return;
-
-    response.cookies.set(name.trim(), valueParts.join("=").trim());
+    response.headers.append("set-cookie", cookie);
   });
+
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
@@ -26,7 +24,7 @@ export async function proxy(request: NextRequest) {
   const refreshToken = request.cookies.get("refreshToken")?.value;
 
   let isAuthenticated = Boolean(accessToken);
-  let response = NextResponse.next();
+  let updatedCookies: string[] = [];
 
   const isPrivateRoute = privateRoutes.some((route) =>
     pathname.startsWith(route),
@@ -39,7 +37,8 @@ export async function proxy(request: NextRequest) {
   if (!accessToken && refreshToken) {
     try {
       const res = await checkSession();
-      applySetCookie(response, res?.headers?.["set-cookie"]);
+
+      updatedCookies = getSetCookieHeaders(res?.headers?.["set-cookie"]);
       isAuthenticated = true;
     } catch {
       isAuthenticated = false;
@@ -47,21 +46,17 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isAuthenticated && isPrivateRoute) {
-    response = NextResponse.redirect(new URL("/sign-in", request.url));
-    return response;
+    const response = NextResponse.redirect(new URL("/sign-in", request.url));
+    return applySetCookieHeaders(response, updatedCookies);
   }
 
   if (isAuthenticated && isPublicRoute) {
-    const redirectResponse = NextResponse.redirect(new URL("/", request.url));
-
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie);
-    });
-
-    return redirectResponse;
+    const response = NextResponse.redirect(new URL("/", request.url));
+    return applySetCookieHeaders(response, updatedCookies);
   }
 
-  return response;
+  const response = NextResponse.next();
+  return applySetCookieHeaders(response, updatedCookies);
 }
 
 export const config = {
