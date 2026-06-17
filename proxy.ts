@@ -4,19 +4,6 @@ import { checkSession } from "./lib/api/serverApi";
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
-function getSetCookieHeaders(setCookie?: string[] | string) {
-  if (!setCookie) return [];
-  return Array.isArray(setCookie) ? setCookie : [setCookie];
-}
-
-function applySetCookieHeaders(response: NextResponse, cookies: string[]) {
-  cookies.forEach((cookie) => {
-    response.headers.append("set-cookie", cookie);
-  });
-
-  return response;
-}
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -24,7 +11,7 @@ export async function proxy(request: NextRequest) {
   const refreshToken = request.cookies.get("refreshToken")?.value;
 
   let isAuthenticated = Boolean(accessToken);
-  let updatedCookies: string[] = [];
+  let setCookie: string[] = [];
 
   const isPrivateRoute = privateRoutes.some((route) =>
     pathname.startsWith(route),
@@ -38,25 +25,30 @@ export async function proxy(request: NextRequest) {
     try {
       const res = await checkSession();
 
-      updatedCookies = getSetCookieHeaders(res?.headers?.["set-cookie"]);
+      const cookies = res?.headers?.["set-cookie"];
+      setCookie = Array.isArray(cookies) ? cookies : cookies ? [cookies] : [];
+
       isAuthenticated = true;
     } catch {
       isAuthenticated = false;
     }
   }
 
+  let response: NextResponse;
+
   if (!isAuthenticated && isPrivateRoute) {
-    const response = NextResponse.redirect(new URL("/sign-in", request.url));
-    return applySetCookieHeaders(response, updatedCookies);
+    response = NextResponse.redirect(new URL("/sign-in", request.url));
+  } else if (isAuthenticated && isPublicRoute) {
+    response = NextResponse.redirect(new URL("/", request.url));
+  } else {
+    response = NextResponse.next();
   }
 
-  if (isAuthenticated && isPublicRoute) {
-    const response = NextResponse.redirect(new URL("/", request.url));
-    return applySetCookieHeaders(response, updatedCookies);
-  }
+  setCookie.forEach((cookie) => {
+    response.headers.append("set-cookie", cookie);
+  });
 
-  const response = NextResponse.next();
-  return applySetCookieHeaders(response, updatedCookies);
+  return response;
 }
 
 export const config = {
